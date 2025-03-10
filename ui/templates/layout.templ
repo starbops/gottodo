@@ -1,0 +1,45 @@
+package templates
+
+// Base layout template for all pages
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<title>{ title } - GoTToDo</title>
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<script src="https://cdn.tailwindcss.com"></script>
+			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+			<script src="https://unpkg.com/htmx.org/dist/ext/response-targets.js"></script>
+			<style>
+				.htmx-indicator {
+					display: none;
+				}
+				.htmx-request .htmx-indicator {
+					display: inline;
+				}
+				.htmx-request.htmx-indicator {
+					display: inline;
+				}
+			</style>
+		</head>
+		<body class="bg-gray-100 min-h-screen" hx-ext="response-targets" data-hx-boost="false">
+			<div class="container mx-auto px-4 py-8">
+				{ children... }
+			</div>
+		</body>
+	</html>
+}
+
+// DashboardLayout adds dashboard-specific header
+templ DashboardLayout() {
+	@Layout("Dashboard") {
+		<div class="flex justify-between items-center mb-8">
+			<h1 class="text-3xl font-bold">Your Todos</h1>
+			<form action="/auth/logout" method="post" hx-boost="false">
+				<button class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded">Logout</button>
+			</form>
+		</div>
+		
+		{ children... }
+	}
+} 

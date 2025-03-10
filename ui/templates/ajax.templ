@@ -1,0 +1,37 @@
+package templates
+
+import "github.com/starbops/gottodo/internal/models"
+
+// TodoListComponent renders the todo list for AJAX responses
+templ TodoListComponent(todos []*models.Todo) {
+	<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
+		<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
+		<div class="space-y-4">
+			if len(todos) == 0 {
+				<p class="text-gray-500 text-center">No todos yet. Add one above!</p>
+			} else {
+				for _, todo := range todos {
+					@TodoItem(todo)
+				}
+			}
+		</div>
+	</div>
+}
+
+// TodoListWithError renders the todo list with an error message
+templ TodoListWithError(message string, todos []*models.Todo) {
+	<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
+		<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
+		<div class="space-y-4">
+			@ErrorMessage(message)
+			
+			if len(todos) == 0 {
+				<p class="text-gray-500 text-center">No todos yet. Add one above!</p>
+			} else {
+				for _, todo := range todos {
+					@TodoItem(todo)
+				}
+			}
+		</div>
+	</div>
+} 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/starbops/gottodo/internal/models"
 	"github.com/starbops/gottodo/internal/repositories"
 )
@@ -20,23 +21,8 @@ func NewMockTodoRepository() repositories.TodoRepository {
 	}
 }
 
-// Create implements the Create method of the TodoRepository interface
-func (r *MockTodoRepository) Create(ctx context.Context, todo *models.Todo) error {
-	r.todos[todo.ID] = todo
-	return nil
-}
-
-// GetByID implements the GetByID method of the TodoRepository interface
-func (r *MockTodoRepository) GetByID(ctx context.Context, id string) (*models.Todo, error) {
-	todo, ok := r.todos[id]
-	if !ok {
-		return nil, repositories.ErrTodoNotFound
-	}
-	return todo, nil
-}
-
-// GetByUserID implements the GetByUserID method of the TodoRepository interface
-func (r *MockTodoRepository) GetByUserID(ctx context.Context, userID string) ([]*models.Todo, error) {
+// GetUserTodos implements the GetUserTodos method of the TodoRepository interface
+func (r *MockTodoRepository) GetUserTodos(ctx context.Context, userID string) ([]*models.Todo, error) {
 	var todos []*models.Todo
 	for _, todo := range r.todos {
 		if todo.UserID == userID {
@@ -46,8 +32,26 @@ func (r *MockTodoRepository) GetByUserID(ctx context.Context, userID string) ([]
 	return todos, nil
 }
 
-// Update implements the Update method of the TodoRepository interface
-func (r *MockTodoRepository) Update(ctx context.Context, todo *models.Todo) error {
+// GetTodo implements the GetTodo method of the TodoRepository interface
+func (r *MockTodoRepository) GetTodo(ctx context.Context, todoID string) (*models.Todo, error) {
+	todo, ok := r.todos[todoID]
+	if !ok {
+		return nil, repositories.ErrTodoNotFound
+	}
+	return todo, nil
+}
+
+// CreateTodo implements the CreateTodo method of the TodoRepository interface
+func (r *MockTodoRepository) CreateTodo(ctx context.Context, todo *models.Todo) error {
+	if todo.ID == "" {
+		todo.ID = uuid.New().String()
+	}
+	r.todos[todo.ID] = todo
+	return nil
+}
+
+// UpdateTodo implements the UpdateTodo method of the TodoRepository interface
+func (r *MockTodoRepository) UpdateTodo(ctx context.Context, todo *models.Todo) error {
 	if _, ok := r.todos[todo.ID]; !ok {
 		return repositories.ErrTodoNotFound
 	}
@@ -55,12 +59,12 @@ func (r *MockTodoRepository) Update(ctx context.Context, todo *models.Todo) erro
 	return nil
 }
 
-// Delete implements the Delete method of the TodoRepository interface
-func (r *MockTodoRepository) Delete(ctx context.Context, id string) error {
-	if _, ok := r.todos[id]; !ok {
+// DeleteTodo implements the DeleteTodo method of the TodoRepository interface
+func (r *MockTodoRepository) DeleteTodo(ctx context.Context, todoID string) error {
+	if _, ok := r.todos[todoID]; !ok {
 		return repositories.ErrTodoNotFound
 	}
-	delete(r.todos, id)
+	delete(r.todos, todoID)
 	return nil
 }
 
@@ -72,7 +76,13 @@ func TestCreateTodo(t *testing.T) {
 	service := NewTodoService(repo)
 
 	// Create a todo
-	todo, err := service.CreateTodo(context.Background(), "user123", "Test Todo", "This is a test todo")
+	todo := &models.Todo{
+		UserID:      "user123",
+		Title:       "Test Todo",
+		Description: "This is a test todo",
+	}
+
+	err := service.CreateTodo(context.Background(), todo)
 	if err != nil {
 		t.Fatalf("Failed to create todo: %v", err)
 	}
@@ -90,6 +100,9 @@ func TestCreateTodo(t *testing.T) {
 	if todo.Completed {
 		t.Errorf("Expected todo to be incomplete, but it was marked as completed")
 	}
+	if todo.ID == "" {
+		t.Errorf("Expected todo ID to be generated, but it was empty")
+	}
 }
 
 func TestGetUserTodos(t *testing.T) {
@@ -100,9 +113,32 @@ func TestGetUserTodos(t *testing.T) {
 	service := NewTodoService(repo)
 
 	// Create some todos for different users
-	service.CreateTodo(context.Background(), "user1", "User 1 Todo 1", "Description 1")
-	service.CreateTodo(context.Background(), "user1", "User 1 Todo 2", "Description 2")
-	service.CreateTodo(context.Background(), "user2", "User 2 Todo", "Description 3")
+	err := service.CreateTodo(context.Background(), &models.Todo{
+		UserID:      "user1",
+		Title:       "User 1 Todo 1",
+		Description: "Description 1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create todo: %v", err)
+	}
+
+	err = service.CreateTodo(context.Background(), &models.Todo{
+		UserID:      "user1",
+		Title:       "User 1 Todo 2",
+		Description: "Description 2",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create todo: %v", err)
+	}
+
+	err = service.CreateTodo(context.Background(), &models.Todo{
+		UserID:      "user2",
+		Title:       "User 2 Todo",
+		Description: "Description 3",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create todo: %v", err)
+	}
 
 	// Get todos for user1
 	todos, err := service.GetUserTodos(context.Background(), "user1")
@@ -127,7 +163,7 @@ func TestGetUserTodos(t *testing.T) {
 	}
 }
 
-func TestCompleteTodo(t *testing.T) {
+func TestUpdateTodoStatus(t *testing.T) {
 	// Create a mock repository
 	repo := NewMockTodoRepository()
 
@@ -135,19 +171,31 @@ func TestCompleteTodo(t *testing.T) {
 	service := NewTodoService(repo)
 
 	// Create a todo
-	todo, err := service.CreateTodo(context.Background(), "user1", "Test Todo", "This is a test todo")
+	todo := &models.Todo{
+		UserID:      "user1",
+		Title:       "Test Todo",
+		Description: "This is a test todo",
+	}
+
+	err := service.CreateTodo(context.Background(), todo)
 	if err != nil {
 		t.Fatalf("Failed to create todo: %v", err)
 	}
 
-	// Complete the todo
-	completedTodo, err := service.CompleteTodo(context.Background(), todo.ID)
+	// Update the todo status to completed
+	err = service.UpdateTodoStatus(context.Background(), todo.ID, "user1", true)
 	if err != nil {
-		t.Fatalf("Failed to complete todo: %v", err)
+		t.Fatalf("Failed to update todo status: %v", err)
+	}
+
+	// Get the updated todo
+	updatedTodo, err := service.GetTodo(context.Background(), todo.ID, "user1")
+	if err != nil {
+		t.Fatalf("Failed to get todo: %v", err)
 	}
 
 	// Check that the todo was marked as completed
-	if !completedTodo.Completed {
+	if !updatedTodo.Completed {
 		t.Errorf("Expected todo to be completed, but it was not")
 	}
 }

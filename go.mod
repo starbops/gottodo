@@ -4,6 +4,7 @@ go 1.23.5
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/a-h/templ v0.3.833
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.3

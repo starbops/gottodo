@@ -2,52 +2,74 @@ package services
 
 import (
 	"context"
+	"errors"
 
 	"github.com/starbops/gottodo/internal/models"
 	"github.com/starbops/gottodo/internal/repositories"
 )
 
-// TodoService handles business logic for todos
+// TodoService handles business logic for todo operations
 type TodoService struct {
-	repo repositories.TodoRepository
+	todoRepo repositories.TodoRepository
 }
 
 // NewTodoService creates a new TodoService
-func NewTodoService(repo repositories.TodoRepository) *TodoService {
+func NewTodoService(todoRepo repositories.TodoRepository) *TodoService {
 	return &TodoService{
-		repo: repo,
+		todoRepo: todoRepo,
 	}
 }
 
-// CreateTodo creates a new todo
-func (s *TodoService) CreateTodo(ctx context.Context, userID, title, description string) (*models.Todo, error) {
-	todo := models.NewTodo(userID, title, description)
-	err := s.repo.Create(ctx, todo)
+// GetUserTodos retrieves all todos belonging to a user
+func (s *TodoService) GetUserTodos(ctx context.Context, userID string) ([]*models.Todo, error) {
+	if userID == "" {
+		return nil, errors.New("user ID cannot be empty")
+	}
+	return s.todoRepo.GetUserTodos(ctx, userID)
+}
+
+// GetTodo retrieves a specific todo
+func (s *TodoService) GetTodo(ctx context.Context, todoID string, userID string) (*models.Todo, error) {
+	if todoID == "" {
+		return nil, errors.New("todo ID cannot be empty")
+	}
+
+	todo, err := s.todoRepo.GetTodo(ctx, todoID)
 	if err != nil {
 		return nil, err
 	}
+
+	// Verify ownership
+	if todo.UserID != userID {
+		return nil, errors.New("you don't have permission to access this todo")
+	}
+
 	return todo, nil
 }
 
-// GetTodo gets a todo by ID
-func (s *TodoService) GetTodo(ctx context.Context, id string) (*models.Todo, error) {
-	return s.repo.GetByID(ctx, id)
+// CreateTodo creates a new todo for a user
+func (s *TodoService) CreateTodo(ctx context.Context, todo *models.Todo) error {
+	if todo.Title == "" {
+		return errors.New("title cannot be empty")
+	}
+
+	return s.todoRepo.CreateTodo(ctx, todo)
 }
 
-// GetUserTodos gets all todos for a user
-func (s *TodoService) GetUserTodos(ctx context.Context, userID string) ([]*models.Todo, error) {
-	return s.repo.GetByUserID(ctx, userID)
-}
-
-// UpdateTodo updates a todo
-func (s *TodoService) UpdateTodo(ctx context.Context, id, title, description string) (*models.Todo, error) {
-	todo, err := s.repo.GetByID(ctx, id)
+// UpdateTodo updates an existing todo
+func (s *TodoService) UpdateTodo(ctx context.Context, todoID string, title string, description string) (*models.Todo, error) {
+	// Get the current todo
+	todo, err := s.todoRepo.GetTodo(ctx, todoID)
 	if err != nil {
 		return nil, err
 	}
 
-	todo.Update(title, description)
-	err = s.repo.Update(ctx, todo)
+	// Update fields
+	todo.Title = title
+	todo.Description = description
+
+	// Save changes
+	err = s.todoRepo.UpdateTodo(ctx, todo)
 	if err != nil {
 		return nil, err
 	}
@@ -56,38 +78,35 @@ func (s *TodoService) UpdateTodo(ctx context.Context, id, title, description str
 }
 
 // DeleteTodo deletes a todo
-func (s *TodoService) DeleteTodo(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+func (s *TodoService) DeleteTodo(ctx context.Context, todoID string, userID string) error {
+	// Verify ownership first
+	todo, err := s.todoRepo.GetTodo(ctx, todoID)
+	if err != nil {
+		return err
+	}
+
+	if todo.UserID != userID {
+		return errors.New("you don't have permission to delete this todo")
+	}
+
+	return s.todoRepo.DeleteTodo(ctx, todoID)
 }
 
-// CompleteTodo marks a todo as completed
-func (s *TodoService) CompleteTodo(ctx context.Context, id string) (*models.Todo, error) {
-	todo, err := s.repo.GetByID(ctx, id)
+// UpdateTodoStatus updates the completed status of a todo
+func (s *TodoService) UpdateTodoStatus(ctx context.Context, todoID string, userID string, completed bool) error {
+	// Verify ownership first
+	todo, err := s.todoRepo.GetTodo(ctx, todoID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	todo.MarkComplete()
-	err = s.repo.Update(ctx, todo)
-	if err != nil {
-		return nil, err
+	if todo.UserID != userID {
+		return errors.New("you don't have permission to update this todo")
 	}
 
-	return todo, nil
-}
+	// Update status
+	todo.Completed = completed
 
-// IncompleteTodo marks a todo as not completed
-func (s *TodoService) IncompleteTodo(ctx context.Context, id string) (*models.Todo, error) {
-	todo, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	todo.MarkIncomplete()
-	err = s.repo.Update(ctx, todo)
-	if err != nil {
-		return nil, err
-	}
-
-	return todo, nil
+	// Save changes
+	return s.todoRepo.UpdateTodo(ctx, todo)
 }

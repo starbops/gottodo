@@ -23,63 +23,68 @@ func NewAuthHandler(service *auth.AuthService) *AuthHandler {
 
 // RegisterRequest represents the request body for user registration
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" form:"email"`
+	Password string `json:"password" form:"password"`
 }
 
 // LoginRequest represents the request body for user login
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" form:"email"`
+	Password string `json:"password" form:"password"`
 }
 
 // Register handles POST /auth/register
 func (h *AuthHandler) Register(c echo.Context) error {
 	var req RegisterRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
+		return c.HTML(http.StatusBadRequest, `
+			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+				<p>Error: Invalid form data. Please check your inputs.</p>
+			</div>
+		`)
 	}
 
-	user, err := h.service.Register(c.Request().Context(), req.Email, req.Password)
+	// Register the user but we don't need the returned user object anymore
+	_, err := h.service.Register(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
-		})
+		return c.HTML(http.StatusBadRequest, `
+			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+				<p>Error: `+err.Error()+`</p>
+			</div>
+		`)
 	}
 
-	// Validate that the user ID is a valid UUID
-	if !models.IsValidUUID(user.ID) {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Generated user ID is not a valid UUID",
-		})
-	}
-
-	return c.JSON(http.StatusCreated, user)
+	// After successful registration, redirect to login
+	return c.Redirect(http.StatusFound, "/login")
 }
 
 // Login handles POST /auth/login
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req LoginRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
+		return c.HTML(http.StatusBadRequest, `
+			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+				<p>Error: Invalid login credentials. Please try again.</p>
+			</div>
+		`)
 	}
 
 	session, err := h.service.Login(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": err.Error(),
-		})
+		return c.HTML(http.StatusUnauthorized, `
+			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+				<p>Error: `+err.Error()+`</p>
+			</div>
+		`)
 	}
 
 	// Validate that the user ID is a valid UUID
 	if !models.IsValidUUID(session.UserID) {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Session user ID is not a valid UUID",
-		})
+		return c.HTML(http.StatusInternalServerError, `
+			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+				<p>Error: User ID is not valid</p>
+			</div>
+		`)
 	}
 
 	// Set cookie
@@ -92,26 +97,22 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	cookie.SameSite = http.SameSiteStrictMode
 	c.SetCookie(cookie)
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"user":    session.UserID,
-		"expires": session.ExpiresAt,
-	})
+	// Redirect to dashboard after successful login
+	c.Response().Header().Set("HX-Redirect", "/dashboard")
+	return c.NoContent(http.StatusOK)
 }
 
 // Logout handles POST /auth/logout
 func (h *AuthHandler) Logout(c echo.Context) error {
 	cookie, err := c.Cookie("auth_token")
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "No authentication token",
-		})
+		return c.Redirect(http.StatusFound, "/login")
 	}
 
 	err = h.service.Logout(c.Request().Context(), cookie.Value)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": err.Error(),
-		})
+		// Even if there's an error with logout, still clear the cookie
+		// and redirect to the login page
 	}
 
 	// Clear cookie
@@ -124,7 +125,11 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	cookie.SameSite = http.SameSiteStrictMode
 	c.SetCookie(cookie)
 
-	return c.NoContent(http.StatusNoContent)
+	// Set both regular redirect and HTMX redirect
+	c.Response().Header().Set("HX-Redirect", "/login")
+
+	// Redirect to login page after logout
+	return c.Redirect(http.StatusFound, "/login")
 }
 
 // GitHubAuth handles GET /auth/github
@@ -204,30 +209,36 @@ func (h *AuthHandler) AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		cookie, err := c.Cookie("auth_token")
 		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "Authentication required",
-			})
+			// Redirect to login page instead of returning JSON error
+			return c.Redirect(http.StatusFound, "/login")
 		}
 
 		valid, err := h.service.VerifyToken(c.Request().Context(), cookie.Value)
 		if err != nil || !valid {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "Invalid authentication token",
-			})
+			// Clear the invalid cookie
+			cookie = new(http.Cookie)
+			cookie.Name = "auth_token"
+			cookie.Value = ""
+			cookie.Expires = time.Now().Add(-1 * time.Hour)
+			cookie.Path = "/"
+			cookie.HttpOnly = true
+			cookie.SameSite = http.SameSiteStrictMode
+			c.SetCookie(cookie)
+
+			// Redirect to login page instead of returning JSON error
+			return c.Redirect(http.StatusFound, "/login")
 		}
 
 		user, err := h.service.GetUser(c.Request().Context(), cookie.Value)
 		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "User not found",
-			})
+			// Redirect to login page instead of returning JSON error
+			return c.Redirect(http.StatusFound, "/login")
 		}
 
 		// Validate that the user ID is a valid UUID
 		if !models.IsValidUUID(user.ID) {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "User ID is not a valid UUID",
-			})
+			// Redirect to login page instead of returning JSON error
+			return c.Redirect(http.StatusFound, "/login")
 		}
 
 		c.Set("user", user)

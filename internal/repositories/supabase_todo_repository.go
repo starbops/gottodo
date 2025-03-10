@@ -3,24 +3,140 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/starbops/gottodo/internal/models"
-	"github.com/starbops/gottodo/pkg/database"
+
+	_ "github.com/lib/pq"
 )
 
-// SupabaseTodoRepository implements TodoRepository with Supabase PostgreSQL storage
+// SupabaseTodoRepository is a PostgreSQL implementation of TodoRepository using Supabase
 type SupabaseTodoRepository struct {
-	db *database.SupabaseClient
+	db *sql.DB
 }
 
 // NewSupabaseTodoRepository creates a new SupabaseTodoRepository
-func NewSupabaseTodoRepository(db *database.SupabaseClient) TodoRepository {
+func NewSupabaseTodoRepository(db *sql.DB) TodoRepository {
 	return &SupabaseTodoRepository{
 		db: db,
 	}
+}
+
+// GetUserTodos retrieves all todos for a specific user
+func (r *SupabaseTodoRepository) GetUserTodos(ctx context.Context, userID string) ([]*models.Todo, error) {
+	query := `SELECT id, title, description, user_id, completed FROM todos WHERE user_id = $1`
+
+	// Parse userID into UUID
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query todos: %w", err)
+	}
+	defer rows.Close()
+
+	var todos []*models.Todo
+	for rows.Next() {
+		var todo models.Todo
+		if err := rows.Scan(&todo.ID, &todo.Title, &todo.Description, &todo.UserID, &todo.Completed); err != nil {
+			return nil, fmt.Errorf("failed to scan todo row: %w", err)
+		}
+		todos = append(todos, &todo)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
+	}
+
+	return todos, nil
+}
+
+// GetTodo retrieves a specific todo by ID
+func (r *SupabaseTodoRepository) GetTodo(ctx context.Context, todoID string) (*models.Todo, error) {
+	query := `SELECT id, title, description, user_id, completed FROM todos WHERE id = $1`
+
+	row := r.db.QueryRowContext(ctx, query, todoID)
+
+	var todo models.Todo
+	if err := row.Scan(&todo.ID, &todo.Title, &todo.Description, &todo.UserID, &todo.Completed); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrTodoNotFound
+		}
+		return nil, fmt.Errorf("failed to scan todo: %w", err)
+	}
+
+	return &todo, nil
+}
+
+// CreateTodo creates a new todo
+func (r *SupabaseTodoRepository) CreateTodo(ctx context.Context, todo *models.Todo) error {
+	query := `INSERT INTO todos (id, title, description, user_id, completed) VALUES ($1, $2, $3, $4, $5)`
+
+	// Generate UUID if not provided
+	if todo.ID == "" {
+		todo.ID = uuid.New().String()
+	}
+
+	// Parse userID into UUID
+	uid, err := uuid.Parse(todo.UserID)
+	if err != nil {
+		return fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, query, todo.ID, todo.Title, todo.Description, uid, todo.Completed)
+	if err != nil {
+		return fmt.Errorf("failed to insert todo: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateTodo updates an existing todo
+func (r *SupabaseTodoRepository) UpdateTodo(ctx context.Context, todo *models.Todo) error {
+	query := `UPDATE todos SET title = $1, description = $2, completed = $3 WHERE id = $4`
+
+	result, err := r.db.ExecContext(ctx, query, todo.Title, todo.Description, todo.Completed, todo.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update todo: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrTodoNotFound
+	}
+
+	return nil
+}
+
+// DeleteTodo deletes a todo by ID
+func (r *SupabaseTodoRepository) DeleteTodo(ctx context.Context, todoID string) error {
+	query := `DELETE FROM todos WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, todoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete todo: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrTodoNotFound
+	}
+
+	return nil
 }
 
 // Create stores a new todo in Supabase
@@ -58,7 +174,7 @@ func (r *SupabaseTodoRepository) Create(ctx context.Context, todo *models.Todo) 
 
 	// Use plain SQL query to debug
 	var returnedID uuid.UUID
-	err = r.db.DB.QueryRowContext(
+	err = r.db.QueryRowContext(
 		ctx,
 		query,
 		todoID,           // $1: todo ID (UUID)
@@ -78,7 +194,7 @@ func (r *SupabaseTodoRepository) Create(ctx context.Context, todo *models.Todo) 
 	fmt.Printf("Todo created successfully with ID: %s\n", returnedID)
 
 	// Double-check by fetching the new todo
-	newTodo, err := r.GetByID(ctx, returnedID.String())
+	newTodo, err := r.GetTodo(ctx, returnedID.String())
 	if err != nil {
 		fmt.Printf("Warning: Todo created but couldn't be retrieved: %v\n", err)
 	} else {
@@ -102,7 +218,7 @@ func (r *SupabaseTodoRepository) GetByID(ctx context.Context, id string) (*model
 		FROM todos
 		WHERE id = $1
 	`
-	row := r.db.DB.QueryRowContext(ctx, query, todoID)
+	row := r.db.QueryRowContext(ctx, query, todoID)
 
 	var dbTodoID, dbUserID uuid.UUID
 	todo := &models.Todo{}
@@ -143,7 +259,7 @@ func (r *SupabaseTodoRepository) GetByUserID(ctx context.Context, userID string)
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.DB.QueryContext(ctx, query, parsedUserID)
+	rows, err := r.db.QueryContext(ctx, query, parsedUserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get todos: %w", err)
 	}
@@ -193,7 +309,7 @@ func (r *SupabaseTodoRepository) Update(ctx context.Context, todo *models.Todo) 
 		SET title = $1, description = $2, completed = $3, updated_at = $4
 		WHERE id = $5
 	`
-	res, err := r.db.DB.ExecContext(
+	res, err := r.db.ExecContext(
 		ctx,
 		query,
 		todo.Title,
@@ -226,7 +342,7 @@ func (r *SupabaseTodoRepository) Delete(ctx context.Context, id string) error {
 	}
 
 	query := `DELETE FROM todos WHERE id = $1`
-	res, err := r.db.DB.ExecContext(ctx, query, todoID)
+	res, err := r.db.ExecContext(ctx, query, todoID)
 	if err != nil {
 		return fmt.Errorf("failed to delete todo: %w", err)
 	}

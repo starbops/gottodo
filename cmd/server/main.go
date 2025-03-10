@@ -11,37 +11,15 @@ import (
 	"github.com/starbops/gottodo/internal/repositories"
 	"github.com/starbops/gottodo/internal/services"
 	"github.com/starbops/gottodo/pkg/auth"
-	"github.com/starbops/gottodo/pkg/database"
 )
 
 func main() {
-	// Load environment variables
+	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
+		log.Println("Warning: No .env file found")
 	}
 
-	// Initialize database connection
-	db, err := database.NewSupabaseClient()
-	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer db.Close()
-
-	// Initialize repositories
-	todoRepo := repositories.NewSupabaseTodoRepository(db)
-
-	// Initialize auth service
-	authService := auth.NewAuthService()
-
-	// Initialize services
-	todoService := services.NewTodoService(todoRepo)
-
-	// Initialize handlers
-	todoHandler := handlers.NewTodoHandler(todoService)
-	authHandler := handlers.NewAuthHandler(authService)
-	pageHandler := handlers.NewPageHandler(todoService, authService)
-
-	// Initialize Echo server
+	// Create a new Echo instance
 	e := echo.New()
 
 	// Middleware
@@ -49,41 +27,56 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// Static files
-	e.Static("/static", "ui/static")
+	// Initialize repositories
+	todoRepo := repositories.NewMemoryTodoRepository()
+
+	// Initialize services
+	todoService := services.NewTodoService(todoRepo)
+
+	// Initialize auth service
+	authService := auth.NewAuthService()
+
+	// Initialize handlers
+	todoHandler := handlers.NewTodoHandler(todoService)
+	pageHandler := handlers.NewPageHandler(todoService, authService)
+	authHandler := handlers.NewAuthHandler(authService)
+
+	// Auth middleware
+	authMiddleware := authHandler.AuthMiddleware
 
 	// Routes
 	// Public routes
 	e.GET("/", pageHandler.Home)
 	e.GET("/login", pageHandler.Login)
 	e.GET("/register", pageHandler.Register)
-	e.POST("/auth/register", authHandler.Register)
-	e.POST("/auth/login", authHandler.Login)
-	e.POST("/auth/logout", authHandler.Logout)
+	e.GET("/logged-out", pageHandler.LoggedOut)
 
-	// GitHub OAuth routes
+	// Auth routes
 	e.GET("/auth/github", authHandler.GitHubAuth)
 	e.GET("/auth/github/callback", authHandler.GitHubCallback)
+	e.POST("/auth/login", authHandler.Login)
+	e.POST("/auth/register", authHandler.Register)
+	e.POST("/auth/logout", authHandler.Logout)
 
 	// Protected routes
-	dashboardGroup := e.Group("/dashboard")
-	dashboardGroup.Use(authHandler.AuthMiddleware)
-	dashboardGroup.GET("", pageHandler.Dashboard)
+	e.GET("/dashboard", pageHandler.Dashboard, authMiddleware)
 
-	todoRoutes := e.Group("/todos")
-	todoRoutes.Use(authHandler.AuthMiddleware)
-	todoRoutes.GET("", todoHandler.GetAllTodos)
-	todoRoutes.POST("", todoHandler.CreateTodo)
-	todoRoutes.GET("/:id", todoHandler.GetTodo)
-	todoRoutes.PUT("/:id", todoHandler.UpdateTodo)
-	todoRoutes.DELETE("/:id", todoHandler.DeleteTodo)
-	todoRoutes.PUT("/:id/complete", todoHandler.CompleteTodo)
-	todoRoutes.PUT("/:id/incomplete", todoHandler.IncompleteTodo)
+	// Todo API routes
+	todoGroup := e.Group("/todos", authMiddleware)
+	todoGroup.GET("", todoHandler.GetAllTodos)
+	todoGroup.GET("/:id", todoHandler.GetTodo)
+	todoGroup.POST("", todoHandler.CreateTodo)
+	todoGroup.PUT("/:id", todoHandler.UpdateTodo)
+	todoGroup.PUT("/:id/complete", todoHandler.UpdateTodoStatus)
+	todoGroup.PUT("/:id/incomplete", todoHandler.UpdateTodoStatus)
+	todoGroup.DELETE("/:id", todoHandler.DeleteTodo)
 
-	// Start server
+	// Start the server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	e.Logger.Fatal(e.Start(":" + port))
+
+	log.Printf("Server starting on http://localhost:%s", port)
+	log.Fatal(e.Start(":" + port))
 }
