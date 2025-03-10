@@ -64,6 +64,29 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 GITHUB_REDIRECT_URL=http://localhost:8080/auth/github/callback
 ```
 
+### Configuration
+
+The application uses a JSON configuration file to control various behaviors. By default, it will look for `config.json` in the same directory as the executable. You can specify a different location by setting the `CONFIG_PATH` environment variable.
+
+If no configuration file exists, a default one will be created when the application starts.
+
+Example configuration file:
+
+```json
+{
+  "repository": {
+    "type": "memory"
+  },
+  "server": {
+    "port": "8080"
+  }
+}
+```
+
+Available repository types:
+- `memory`: Stores todos in memory (data will be lost when the application restarts)
+- `supabase`: Stores todos in a Supabase PostgreSQL database (requires proper environment variables)
+
 ### Running the Application
 
 1. Install dependencies:

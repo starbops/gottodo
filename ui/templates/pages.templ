@@ -3,8 +3,8 @@ package templates
 import "github.com/starbops/gottodo/internal/models"
 
 // Dashboard renders the dashboard page with the todo form and list
-templ Dashboard(todos []*models.Todo) {
-	@DashboardLayout() {
+templ Dashboard(todos []*models.Todo, userEmail string) {
+	@DashboardLayout(userEmail) {
 		@TodoForm()
 		@TodoList(todos)
 		

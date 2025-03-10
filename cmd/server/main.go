@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -11,6 +12,7 @@ import (
 	"github.com/starbops/gottodo/internal/repositories"
 	"github.com/starbops/gottodo/internal/services"
 	"github.com/starbops/gottodo/pkg/auth"
+	"github.com/starbops/gottodo/pkg/config"
 )
 
 func main() {
@@ -18,6 +20,15 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found")
 	}
+
+	// Load configuration
+	configPath := getConfigPath()
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	log.Printf("Using repository type: %s", cfg.Repository.Type)
 
 	// Create a new Echo instance
 	e := echo.New()
@@ -28,7 +39,10 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// Initialize repositories
-	todoRepo := repositories.NewMemoryTodoRepository()
+	todoRepo, err := repositories.NewTodoRepository(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create repository: %v", err)
+	}
 
 	// Initialize services
 	todoService := services.NewTodoService(todoRepo)
@@ -71,11 +85,29 @@ func main() {
 	todoGroup.DELETE("/:id", todoHandler.DeleteTodo)
 
 	// Start the server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	port := cfg.Server.Port
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		// Environment variable overrides config file
+		port = envPort
 	}
 
 	log.Printf("Server starting on http://localhost:%s", port)
 	log.Fatal(e.Start(":" + port))
+}
+
+// getConfigPath returns the path to the configuration file
+func getConfigPath() string {
+	// Check if CONFIG_PATH environment variable is set
+	if path := os.Getenv("CONFIG_PATH"); path != "" {
+		return path
+	}
+
+	// Default to config.json in the current directory
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Println("Warning: Could not determine executable path, using current directory")
+		return "config.json"
+	}
+
+	return filepath.Join(filepath.Dir(exePath), "config.json")
 }

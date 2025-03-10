@@ -42,6 +42,7 @@ func (h *PageHandler) Register(c echo.Context) error {
 func (h *PageHandler) Dashboard(c echo.Context) error {
 	// Get user from context
 	userID := c.Get("user_id").(string)
+	user := c.Get("user").(*auth.User)
 
 	// Get todos for the user
 	todos, err := h.todoService.GetUserTodos(c.Request().Context(), userID)
@@ -51,6 +52,6 @@ func (h *PageHandler) Dashboard(c echo.Context) error {
 		})
 	}
 
-	// Render the dashboard template with the todos
-	return templates.Dashboard(todos).Render(c.Request().Context(), c.Response().Writer)
+	// Render the dashboard template with the todos and user email
+	return templates.Dashboard(todos, user.Email).Render(c.Request().Context(), c.Response().Writer)
 }
