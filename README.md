@@ -1,6 +1,6 @@
-## GoTToDo - A Todo App with Go, Templ, Tailwind CSS, and HTMX
+## GotToDo - A Todo App with Go, Templ, Tailwind CSS, and HTMX
 
-GoTToDo is a simple Todo application built with modern web technologies:
+GotToDo is a simple Todo application built with modern web technologies:
 
 - **Backend**: Go with Echo web framework
 - **Frontend**: Uses HTMX for interactivity with minimal JavaScript
