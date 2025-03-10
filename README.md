@@ -33,7 +33,8 @@ GotToDo is a simple Todo application built with modern web technologies:
 ├── migrations/           # Database migrations
 ├── pkg/
 │   ├── auth/             # Authentication utilities
-│   └── database/         # Database utilities
+│   ├── config/           # Configuration management
+│   └── database/         # Database utilities and client
 ├── ui/
 │   └── templates/        # Templ templates for all UI components
 │       ├── layout.templ  # Layout templates
