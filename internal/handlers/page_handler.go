@@ -32,6 +32,17 @@ func (h *PageHandler) Home(c echo.Context) error {
 				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<script src="https://cdn.tailwindcss.com"></script>
 				<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+				<style>
+					.htmx-indicator {
+						display: none;
+					}
+					.htmx-request .htmx-indicator {
+						display: inline;
+					}
+					.htmx-request.htmx-indicator {
+						display: inline;
+					}
+				</style>
 			</head>
 			<body class="bg-gray-100 min-h-screen">
 				<div class="container mx-auto px-4 py-8">
@@ -67,6 +78,17 @@ func (h *PageHandler) Login(c echo.Context) error {
 				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<script src="https://cdn.tailwindcss.com"></script>
 				<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+				<style>
+					.htmx-indicator {
+						display: none;
+					}
+					.htmx-request .htmx-indicator {
+						display: inline;
+					}
+					.htmx-request.htmx-indicator {
+						display: inline;
+					}
+				</style>
 			</head>
 			<body class="bg-gray-100 min-h-screen">
 				<div class="container mx-auto px-4 py-8">
@@ -112,6 +134,17 @@ func (h *PageHandler) Register(c echo.Context) error {
 				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<script src="https://cdn.tailwindcss.com"></script>
 				<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+				<style>
+					.htmx-indicator {
+						display: none;
+					}
+					.htmx-request .htmx-indicator {
+						display: inline;
+					}
+					.htmx-request.htmx-indicator {
+						display: inline;
+					}
+				</style>
 			</head>
 			<body class="bg-gray-100 min-h-screen">
 				<div class="container mx-auto px-4 py-8">
@@ -219,23 +252,44 @@ func (h *PageHandler) Dashboard(c echo.Context) error {
 				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<script src="https://cdn.tailwindcss.com"></script>
 				<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+				<style>
+					.htmx-indicator {
+						display: none;
+					}
+					.htmx-request .htmx-indicator {
+						display: inline;
+					}
+					.htmx-request.htmx-indicator {
+						display: inline;
+					}
+				</style>
 				<script>
-					// Listen for successful todo creation
-					document.body.addEventListener('htmx:afterSwap', function(event) {
-						// Check if the swap target was the todo list
-						if (event.detail.target.id === 'todo-list') {
-							// Clear the form
-							document.querySelector('form').reset();
-							
-							// Show success message
-							var message = document.getElementById('form-message');
-							message.classList.remove('hidden');
-							
-							// Hide the message after 2 seconds
-							setTimeout(function() {
-								message.classList.add('hidden');
-							}, 2000);
-						}
+					// Listen for successful form submission
+					document.addEventListener('DOMContentLoaded', function() {
+						// Add HTMX event listener for after the swap completes
+						document.body.addEventListener('htmx:afterSwap', function(event) {
+							// Check if the swap target was the todo list
+							if (event.detail.target.id === 'todo-list') {
+								// Clear the form AFTER data has been sent successfully
+								const form = document.getElementById('todo-form');
+								if (form) {
+									// Reset form
+									form.reset();
+									
+									// Show success message
+									const message = document.getElementById('form-message');
+									if (message) {
+										message.classList.remove('hidden');
+										message.textContent = "Todo added successfully!";
+										
+										// Hide the message after 2 seconds
+										setTimeout(function() {
+											message.classList.add('hidden');
+										}, 2000);
+									}
+								}
+							}
+						});
 					});
 				</script>
 			</head>
@@ -249,7 +303,7 @@ func (h *PageHandler) Dashboard(c echo.Context) error {
 					</div>
 					<div class="bg-white rounded-lg shadow-md p-6 mb-6">
 						<h2 class="text-xl font-semibold mb-4">Add New Todo</h2>
-						<form hx-post="/todos" hx-swap="outerHTML" hx-target="#todo-list" hx-headers='{"Content-Type": "application/x-www-form-urlencoded"}'>
+						<form id="todo-form" hx-post="/todos" hx-swap="outerHTML" hx-target="#todo-list" hx-headers='{"Content-Type": "application/x-www-form-urlencoded"}' hx-indicator="#form-indicator">
 							<div class="mb-4">
 								<label class="block text-gray-700 text-sm font-bold mb-2" for="title">Title</label>
 								<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="title" name="title" type="text" placeholder="Todo title" required>
@@ -259,7 +313,15 @@ func (h *PageHandler) Dashboard(c echo.Context) error {
 								<textarea class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="description" name="description" placeholder="Todo description" required></textarea>
 							</div>
 							<div class="flex items-center">
-								<button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">Add Todo</button>
+								<button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
+									Add Todo
+									<span id="form-indicator" class="htmx-indicator ml-2">
+										<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+									</span>
+								</button>
 								<span id="form-message" class="ml-4 text-green-600 hidden">Todo added successfully!</span>
 							</div>
 						</form>

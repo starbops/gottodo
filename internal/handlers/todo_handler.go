@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -71,38 +70,113 @@ func (h *TodoHandler) CreateTodo(c echo.Context) error {
 	title := c.FormValue("title")
 	description := c.FormValue("description")
 
-	// Debug output
-	fmt.Printf("Received form values: title='%s', description='%s'\n", title, description)
-	fmt.Printf("Content-Type: %s\n", c.Request().Header.Get("Content-Type"))
-
+	// Validate required fields
 	if title == "" || description == "" {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"error": "Title and description are required",
-			"debug": map[string]interface{}{
-				"title":        title,
-				"description":  description,
-				"content_type": c.Request().Header.Get("Content-Type"),
-			},
-		})
+		// Return a user-friendly error with the same structure as success
+		errorHTML := `
+		<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
+			<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
+			<div class="space-y-4">
+				<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+					<p>Error: Title and description are required.</p>
+				</div>
+				<!-- Re-fetch existing todos to keep the list current -->
+				`
+
+		// Get todos to display (ensure list is still populated if there are existing todos)
+		userID := c.Get("user_id").(string)
+		todos, err := h.service.GetUserTodos(c.Request().Context(), userID)
+		if err == nil && len(todos) > 0 {
+			for _, t := range todos {
+				completedClass := ""
+				titleClass := ""
+				buttonIcon := ""
+
+				if t.Completed {
+					completedClass = "bg-gray-100"
+					titleClass = "line-through text-gray-500"
+					buttonIcon = `
+						<button class="text-yellow-500 hover:text-yellow-700 mr-2" hx-put="/todos/` + t.ID + `/incomplete" hx-swap="outerHTML" hx-target="#todo-` + t.ID + `">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+							</svg>
+						</button>
+					`
+				} else {
+					buttonIcon = `
+						<button class="text-green-500 hover:text-green-700 mr-2" hx-put="/todos/` + t.ID + `/complete" hx-swap="outerHTML" hx-target="#todo-` + t.ID + `">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+							</svg>
+						</button>
+					`
+				}
+
+				errorHTML += `
+				<div class="border rounded-lg p-4 bg-white shadow-sm mb-4 ` + completedClass + `" id="todo-` + t.ID + `">
+					<div class="flex justify-between items-start">
+						<div>
+							<h3 class="font-semibold text-lg ` + titleClass + `">` + t.Title + `</h3>
+							<p class="text-gray-600 mt-1">` + t.Description + `</p>
+						</div>
+						<div class="flex">
+							` + buttonIcon + `
+							<button class="text-red-500 hover:text-red-700" hx-delete="/todos/` + t.ID + `" hx-swap="outerHTML" hx-target="#todo-` + t.ID + `" hx-confirm="Are you sure you want to delete this todo?">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+								</svg>
+							</button>
+						</div>
+					</div>
+				</div>
+				`
+			}
+		} else {
+			errorHTML += `<p class="text-gray-500 text-center">No todos yet. Add one above!</p>`
+		}
+
+		errorHTML += `
+			</div>
+		</div>
+		`
+
+		// Return the error with the todo list HTML
+		return c.HTML(http.StatusBadRequest, errorHTML)
 	}
 
 	userID := c.Get("user_id").(string)
 	_, err := h.service.CreateTodo(c.Request().Context(), userID, title, description)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": err.Error(),
-		})
+		// Handle service errors with user-friendly HTML
+		return c.HTML(http.StatusInternalServerError, `
+		<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
+			<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
+			<div class="space-y-4">
+				<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+					<p>Error: Unable to create todo. Please try again later.</p>
+				</div>
+				<p class="text-gray-500 text-center">Refresh the page to see your current todos.</p>
+			</div>
+		</div>
+		`)
 	}
 
 	// Return a refresh of the todo list - this allows the frontend to update
 	todos, err := h.service.GetUserTodos(c.Request().Context(), userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": err.Error(),
-		})
+		return c.HTML(http.StatusInternalServerError, `
+		<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
+			<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
+			<div class="space-y-4">
+				<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+					<p>Error: Unable to retrieve todos. Please refresh the page.</p>
+				</div>
+			</div>
+		</div>
+		`)
 	}
 
-	// Generate HTML for todos - only returning the content inside todo-list div, preserving the structure
+	// Generate HTML for todos
 	todoHTML := ""
 	if len(todos) == 0 {
 		todoHTML = `<p class="text-gray-500 text-center">No todos yet. Add one above!</p>`
@@ -154,14 +228,19 @@ func (h *TodoHandler) CreateTodo(c echo.Context) error {
 	}
 
 	// Important: we're returning the entire todo-list div with its header to preserve the structure
-	return c.HTML(http.StatusOK, `
+	htmlResponse := `
 		<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
 			<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
 			<div class="space-y-4">
-				`+todoHTML+`
+				` + todoHTML + `
 			</div>
 		</div>
-	`)
+	`
+
+	// Add HX-Trigger header to ensure client-side events fire
+	c.Response().Header().Set("HX-Trigger", "todoCreated")
+
+	return c.HTML(http.StatusOK, htmlResponse)
 }
 
 // UpdateTodo handles PUT /todos/:id
