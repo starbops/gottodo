@@ -38,11 +38,6 @@ func (h *PageHandler) Register(c echo.Context) error {
 	return templates.Register().Render(c.Request().Context(), c.Response().Writer)
 }
 
-// LoggedOut handles GET /logged-out
-func (h *PageHandler) LoggedOut(c echo.Context) error {
-	return templates.LoggedOut().Render(c.Request().Context(), c.Response().Writer)
-}
-
 // Dashboard handles GET /dashboard
 func (h *PageHandler) Dashboard(c echo.Context) error {
 	// Get user from context

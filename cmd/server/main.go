@@ -49,7 +49,6 @@ func main() {
 	e.GET("/", pageHandler.Home)
 	e.GET("/login", pageHandler.Login)
 	e.GET("/register", pageHandler.Register)
-	e.GET("/logged-out", pageHandler.LoggedOut)
 
 	// Auth routes
 	e.GET("/auth/github", authHandler.GitHubAuth)

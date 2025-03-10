@@ -131,6 +131,8 @@ templ Register() {
 }
 
 // LoggedOut renders the logged-out success page
+// Note: This template is currently unused as we redirect directly to login after logout
+// but it's kept for potential future use
 templ LoggedOut() {
 	@Layout("Logged Out") {
 		<div class="max-w-md mx-auto mt-10 bg-white rounded-lg shadow-md p-6">
