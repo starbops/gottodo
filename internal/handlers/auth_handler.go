@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -39,24 +40,27 @@ type LoginRequest struct {
 func (h *AuthHandler) Register(c echo.Context) error {
 	var req RegisterRequest
 	if err := c.Bind(&req); err != nil {
-		return c.HTML(http.StatusBadRequest, `
-			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-				<p>Error: Invalid form data. Please check your inputs.</p>
-			</div>
-		`)
+		c.Logger().Error("Register binding error:", err)
+		component := templates.RegisterErrorForm("Invalid form data. Please check your inputs.", req.Email)
+		return component.Render(context.Background(), c.Response().Writer)
 	}
 
-	// Register the user but we don't need the returned user object anymore
+	// Register the user but we don't need the returned user object
 	_, err := h.service.Register(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
-		return c.HTML(http.StatusBadRequest, `
-			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-				<p>Error: `+err.Error()+`</p>
-			</div>
-		`)
+		c.Logger().Error("Registration error:", err)
+		component := templates.RegisterErrorForm(err.Error(), req.Email)
+		return component.Render(context.Background(), c.Response().Writer)
 	}
 
-	// After successful registration, redirect to login
+	// For successful registration, show success message with countdown
+	if c.Request().Header.Get("HX-Request") == "true" {
+		// Return success component for HTMX requests
+		component := templates.RegisterSuccessForm(req.Email)
+		return component.Render(context.Background(), c.Response().Writer)
+	}
+
+	// For non-HTMX requests, use standard redirect
 	return c.Redirect(http.StatusFound, "/login")
 }
 

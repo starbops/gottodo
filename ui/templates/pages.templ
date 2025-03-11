@@ -111,7 +111,7 @@ templ Register() {
 				<span class="text-gray-500">Or register with email</span>
 			</div>
 			<div id="register-form-container">
-				<form id="register-form" hx-post="/auth/register" hx-target="#register-form-container" hx-swap="innerHTML">
+				<form id="register-form" hx-post="/auth/register" hx-target="#register-form-container" hx-swap="innerHTML" hx-boost="true">
 					<div class="mb-4">
 						<label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
 						<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="email" name="email" type="email" placeholder="Email" />

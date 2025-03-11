@@ -46,4 +46,57 @@ templ LoginErrorForm(email string) {
 			<a class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="/register">Don't have an account?</a>
 		</div>
 	</form>
+}
+
+// RegisterErrorForm renders a registration form with an error message
+templ RegisterErrorForm(errorMessage string, email string) {
+	<form id="register-form" hx-post="/auth/register" hx-target="#register-form-container" hx-swap="innerHTML" hx-boost="true">
+		<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
+			<p>Error: {errorMessage}</p>
+		</div>
+		<div class="mb-4">
+			<label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
+			<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+				id="email" name="email" type="email" placeholder="Email" value={email} />
+		</div>
+		<div class="mb-6">
+			<label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
+			<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+				id="password" name="password" type="password" placeholder="Password" />
+		</div>
+		<div class="flex items-center justify-between">
+			<button class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">Register</button>
+			<a class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="/login">Already have an account?</a>
+		</div>
+	</form>
+}
+
+// RegisterSuccessForm shows a success message with countdown after successful registration
+templ RegisterSuccessForm(email string) {
+	<div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded" role="alert">
+		<div class="flex items-center">
+			<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+			</svg>
+			<p class="font-bold">Registration Successful!</p>
+		</div>
+		<p class="mt-2">Your account with email <span class="font-semibold">{email}</span> has been created successfully.</p>
+		<p class="mt-2">You will be redirected to the login page in <span id="countdown" class="font-bold">3</span> seconds...</p>
+	</div>
+
+	<script>
+		// Countdown timer
+		let count = 3;
+		const countdownElement = document.getElementById('countdown');
+		
+		const countdownInterval = setInterval(() => {
+			count--;
+			countdownElement.textContent = count.toString();
+			
+			if (count <= 0) {
+				clearInterval(countdownInterval);
+				window.location.href = '/login';
+			}
+		}, 1000);
+	</script>
 } 

@@ -9,13 +9,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/starbops/gottodo/pkg/config"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // User represents a user in the system
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"` // Password hash is not exposed to JSON
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // Session represents an authenticated session
@@ -66,11 +68,18 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (*Us
 		return nil, errors.New("user already exists")
 	}
 
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %v", err)
+	}
+
 	// Create a new user with a UUID
 	user := &User{
-		ID:        uuid.New().String(), // Generate a valid UUID string
-		Email:     email,
-		CreatedAt: time.Now(),
+		ID:           uuid.New().String(), // Generate a valid UUID string
+		Email:        email,
+		PasswordHash: string(hashedPassword),
+		CreatedAt:    time.Now(),
 	}
 
 	// Store the user
@@ -89,7 +98,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Sessi
 		return nil, errors.New("invalid credentials")
 	}
 
-	// In a real implementation, we would validate the password here
+	// Verify the password
+	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
 
 	// Create a new session
 	session := &Session{
