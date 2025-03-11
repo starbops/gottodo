@@ -43,7 +43,7 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - GoTToDo</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"https://unpkg.com/htmx.org@1.9.10\"></script><script src=\"https://unpkg.com/htmx.org/dist/ext/response-targets.js\"></script><style>\n\t\t\t\t.htmx-indicator {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t}\n\t\t\t\t.htmx-request .htmx-indicator {\n\t\t\t\t\tdisplay: inline;\n\t\t\t\t}\n\t\t\t\t.htmx-request.htmx-indicator {\n\t\t\t\t\tdisplay: inline;\n\t\t\t\t}\n\t\t\t</style></head><body class=\"bg-gray-100 min-h-screen\" hx-ext=\"response-targets\" data-hx-boost=\"false\"><div class=\"container mx-auto px-4 py-8\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - GotToDo</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"https://unpkg.com/htmx.org@1.9.10\"></script><script src=\"https://unpkg.com/htmx.org/dist/ext/response-targets.js\"></script><style>\n\t\t\t\t.htmx-indicator {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t}\n\t\t\t\t.htmx-request .htmx-indicator {\n\t\t\t\t\tdisplay: inline;\n\t\t\t\t}\n\t\t\t\t.htmx-request.htmx-indicator {\n\t\t\t\t\tdisplay: inline;\n\t\t\t\t}\n\t\t\t</style></head><body class=\"bg-gray-100 min-h-screen\" hx-ext=\"response-targets\" data-hx-boost=\"false\"><div class=\"container mx-auto px-4 py-8\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

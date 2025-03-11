@@ -1,6 +1,6 @@
-# Supabase Setup Guide for GoTToDo
+# Supabase Setup Guide for GotToDo
 
-This document explains how to set up Supabase correctly for the GoTToDo application, particularly focusing on UUID handling, which is critical for the application to work properly.
+This document explains how to set up Supabase correctly for the GotToDo application, particularly focusing on UUID handling, which is critical for the application to work properly.
 
 ## Initial Setup
 
@@ -143,4 +143,4 @@ The key points for making the application work with Supabase are:
 3. Set up Row Level Security to match the authentication system
 4. Use the correct authentication flow for GitHub OAuth
 
-If you follow these guidelines, you should have a functioning GoTToDo application with proper data isolation and authentication. 
+If you follow these guidelines, you should have a functioning GotToDo application with proper data isolation and authentication. 
