@@ -18,7 +18,7 @@ func NewTodoRepository(cfg *config.Config) (TodoRepository, error) {
 	case config.SupabaseRepository:
 		log.Println("Using Supabase todo repository")
 		// Connect to Supabase
-		db, err := database.ConnectToSupabase()
+		db, err := database.ConnectToSupabase(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to Supabase: %w", err)
 		}

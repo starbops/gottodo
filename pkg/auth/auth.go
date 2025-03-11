@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/starbops/gottodo/pkg/config"
 )
 
 // User represents a user in the system
@@ -31,18 +32,23 @@ type OAuthState struct {
 	ExpiresAt time.Time
 }
 
-// AuthService provides authentication functionality
+// AuthService handles user authentication and session management
 type AuthService struct {
-	users       map[string]*User       // email -> user
-	sessions    map[string]*Session    // token -> session
-	oauthStates map[string]*OAuthState // state -> OAuthState
+	// config holds the application configuration
+	config *config.Config
+
+	// Simple in-memory storage for development/testing
+	users       map[string]*User       // map of user IDs to users
+	sessions    map[string]*Session    // map of tokens to sessions
+	oauthStates map[string]*OAuthState // map of state to OAuthState
 	github      *GitHubOAuthConfig
 	mu          sync.RWMutex
 }
 
-// NewAuthService creates a new authentication service
-func NewAuthService() *AuthService {
+// NewAuthService creates a new AuthService
+func NewAuthService(cfg *config.Config) *AuthService {
 	return &AuthService{
+		config:      cfg,
 		users:       make(map[string]*User),
 		sessions:    make(map[string]*Session),
 		oauthStates: make(map[string]*OAuthState),
@@ -188,10 +194,36 @@ func (s *AuthService) VerifyOAuthState(state string) bool {
 	return true
 }
 
-// GetGitHubAuthURL returns the GitHub OAuth URL
+// GenerateOAuthState generates a random state for OAuth flow and stores it
+func (s *AuthService) GenerateOAuthState() (string, error) {
+	state, err := GenerateRandomState()
+	if err != nil {
+		return "", err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.oauthStates[state] = &OAuthState{
+		State:     state,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(15 * time.Minute), // State expires after 15 minutes
+	}
+
+	return state, nil
+}
+
+// GetGitHubAuthURL returns the GitHub authorization URL
 func (s *AuthService) GetGitHubAuthURL() (string, string) {
-	state := s.CreateOAuthState()
-	return s.github.GetAuthCodeURL(state), state
+	// Generate a random state
+	state, err := s.GenerateOAuthState()
+	if err != nil {
+		return "", ""
+	}
+
+	// Get the authorization URL
+	url := s.github.GetAuthCodeURL(state, s)
+	return url, state
 }
 
 // HandleGitHubCallback handles the GitHub OAuth callback

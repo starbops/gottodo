@@ -1,57 +1,52 @@
 package database
 
 import (
-	"os"
 	"testing"
+
+	"github.com/starbops/gottodo/pkg/config"
 )
 
-func TestNewSupabaseClient_NoEnvVar(t *testing.T) {
-	// Save current env var value and restore it after the test
-	oldDBURL := os.Getenv("SUPABASE_DB_URL")
-	defer os.Setenv("SUPABASE_DB_URL", oldDBURL)
+func TestNewSupabaseClient_NoDBURL(t *testing.T) {
+	// Create a config with empty database URL
+	cfg := config.DefaultConfig()
+	cfg.Database.SupabaseDBURL = ""
 
-	// Clear the env var
-	os.Unsetenv("SUPABASE_DB_URL")
-
-	// Try to create a client without the env var
-	client, err := NewSupabaseClient()
+	// Try to create a client without the database URL
+	client, err := NewSupabaseClient(cfg)
 
 	// Should get an error
 	if err == nil {
-		t.Error("Expected error when SUPABASE_DB_URL is not set, got nil")
+		t.Error("Expected error when database URL is not set, got nil")
 		if client != nil && client.DB != nil {
 			client.DB.Close()
 		}
 	}
 
-	// Error message should mention the missing env var
-	if err != nil && err.Error() != "SUPABASE_DB_URL environment variable is not set" {
-		t.Errorf("Expected error about missing env var, got: %v", err)
+	// Error message should mention the missing database URL
+	if err != nil && err.Error() != "Supabase database URL is not configured" {
+		t.Errorf("Expected error about missing database URL, got: %v", err)
 	}
 }
 
-func TestConnectToSupabase_NoEnvVar(t *testing.T) {
-	// Save current env var value and restore it after the test
-	oldDBURL := os.Getenv("SUPABASE_DB_URL")
-	defer os.Setenv("SUPABASE_DB_URL", oldDBURL)
+func TestConnectToSupabase_NoDBURL(t *testing.T) {
+	// Create a config with empty database URL
+	cfg := config.DefaultConfig()
+	cfg.Database.SupabaseDBURL = ""
 
-	// Clear the env var
-	os.Unsetenv("SUPABASE_DB_URL")
-
-	// Try to connect without the env var
-	db, err := ConnectToSupabase()
+	// Try to connect without the database URL
+	db, err := ConnectToSupabase(cfg)
 
 	// Should get an error
 	if err == nil {
-		t.Error("Expected error when SUPABASE_DB_URL is not set, got nil")
+		t.Error("Expected error when database URL is not set, got nil")
 		if db != nil {
 			db.Close()
 		}
 	}
 
-	// Error message should mention the missing env var
-	if err != nil && err.Error() != "SUPABASE_DB_URL environment variable is not set" {
-		t.Errorf("Expected error about missing env var, got: %v", err)
+	// Error message should mention the missing database URL
+	if err != nil && err.Error() != "Supabase database URL is not configured" {
+		t.Errorf("Expected error about missing database URL, got: %v", err)
 	}
 }
 

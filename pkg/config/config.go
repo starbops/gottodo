@@ -31,11 +31,29 @@ type Config struct {
 		Port string `json:"port"`
 	} `json:"server"`
 
-	// Additional configuration settings can be added here in the future
-	// For example:
-	// Auth struct {
-	//     SessionTimeout int `json:"sessionTimeout"` // in minutes
-	// } `json:"auth"`
+	// Database configuration
+	Database struct {
+		// SupabaseURL is the URL to the Supabase instance
+		SupabaseURL string `json:"supabase_url"`
+
+		// SupabaseAnonKey is the anonymous key for Supabase
+		SupabaseAnonKey string `json:"supabase_anon_key"`
+
+		// SupabaseDBURL is the PostgreSQL connection string for Supabase
+		SupabaseDBURL string `json:"supabase_db_url"`
+	} `json:"database"`
+
+	// Authentication configuration
+	Auth struct {
+		// GitHubClientID is the GitHub OAuth application client ID
+		GitHubClientID string `json:"github_client_id"`
+
+		// GitHubClientSecret is the GitHub OAuth application client secret
+		GitHubClientSecret string `json:"github_client_secret"`
+
+		// GitHubRedirectURL is the callback URL for GitHub OAuth
+		GitHubRedirectURL string `json:"github_redirect_url"`
+	} `json:"auth"`
 }
 
 // DefaultConfig returns the default configuration
@@ -47,6 +65,9 @@ func DefaultConfig() *Config {
 
 	// Set default server port
 	cfg.Server.Port = "8080"
+
+	// Set default GitHub redirect URL
+	cfg.Auth.GitHubRedirectURL = "http://localhost:8080/auth/github/callback"
 
 	return cfg
 }
@@ -108,4 +129,14 @@ func SaveConfig(cfg *Config, configPath string) error {
 
 	// Write the config to file
 	return os.WriteFile(configPath, data, 0644)
+}
+
+// GetSupabaseDBURL returns the Supabase database URL
+func (c *Config) GetSupabaseDBURL() string {
+	return c.Database.SupabaseDBURL
+}
+
+// GetGitHubOAuthConfig returns the GitHub OAuth configuration
+func (c *Config) GetGitHubOAuthConfig() (clientID, clientSecret, redirectURL string) {
+	return c.Auth.GitHubClientID, c.Auth.GitHubClientSecret, c.Auth.GitHubRedirectURL
 }

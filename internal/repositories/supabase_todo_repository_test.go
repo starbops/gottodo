@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -39,20 +40,25 @@ func TestSupabaseTodoRepository_CreateTodo(t *testing.T) {
 	// Create valid UUIDs for testing
 	todoID := uuid.New().String()
 	userID := uuid.New().String()
+
+	// Create a todo with timestamps
+	now := time.Now()
 	todo := &models.Todo{
 		ID:          todoID,
 		UserID:      userID,
 		Title:       "Test Todo",
 		Description: "This is a test todo",
 		Completed:   false,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	// Parse userID into UUID for matching in SQL mock
 	userUUID := parseUUID(t, userID)
 
-	// Set expected query and response
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO todos (id, title, description, user_id, completed) VALUES ($1, $2, $3, $4, $5)`)).
-		WithArgs(todoID, "Test Todo", "This is a test todo", userUUID, false).
+	// Set expected query and response - using specific timestamps
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO todos (id, title, description, user_id, completed, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`)).
+		WithArgs(todoID, "Test Todo", "This is a test todo", userUUID, false, todo.CreatedAt, todo.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Execute the function being tested
@@ -61,6 +67,8 @@ func TestSupabaseTodoRepository_CreateTodo(t *testing.T) {
 	// Assertions
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	assert.Equal(t, now, todo.CreatedAt, "CreatedAt should remain unchanged")
+	assert.Equal(t, now, todo.UpdatedAt, "UpdatedAt should remain unchanged")
 }
 
 func TestSupabaseTodoRepository_GetTodo(t *testing.T) {
@@ -162,17 +170,19 @@ func TestSupabaseTodoRepository_UpdateTodo(t *testing.T) {
 	// Create valid UUIDs for testing
 	todoID := uuid.New().String()
 	userID := uuid.New().String()
+	now := time.Now()
 	todo := &models.Todo{
 		ID:          todoID,
 		UserID:      userID,
 		Title:       "Updated Todo",
 		Description: "This is an updated test todo",
 		Completed:   true,
+		UpdatedAt:   now,
 	}
 
-	// Set expected query and response
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE todos SET title = $1, description = $2, completed = $3 WHERE id = $4`)).
-		WithArgs("Updated Todo", "This is an updated test todo", true, todoID).
+	// Set expected query and response with updated_at
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE todos SET title = $1, description = $2, completed = $3, updated_at = $4 WHERE id = $5`)).
+		WithArgs("Updated Todo", "This is an updated test todo", true, now, todoID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Execute the function being tested
@@ -192,17 +202,19 @@ func TestSupabaseTodoRepository_UpdateTodo_NotFound(t *testing.T) {
 	// Create valid UUIDs for testing
 	todoID := uuid.New().String()
 	userID := uuid.New().String()
+	now := time.Now()
 	todo := &models.Todo{
 		ID:          todoID,
 		UserID:      userID,
 		Title:       "Updated Todo",
 		Description: "This is an updated test todo",
 		Completed:   true,
+		UpdatedAt:   now,
 	}
 
 	// Set expected query and response (no rows affected)
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE todos SET title = $1, description = $2, completed = $3 WHERE id = $4`)).
-		WithArgs("Updated Todo", "This is an updated test todo", true, todoID).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE todos SET title = $1, description = $2, completed = $3, updated_at = $4 WHERE id = $5`)).
+		WithArgs("Updated Todo", "This is an updated test todo", true, now, todoID).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	// Execute the function being tested
@@ -257,4 +269,38 @@ func TestSupabaseTodoRepository_DeleteTodo_NotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, ErrTodoNotFound, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSupabaseTodoRepository_CreateTodo_SetsTimestamps(t *testing.T) {
+	// Setup
+	mockDB, mock := setupMockDB(t)
+	repo := NewSupabaseTodoRepository(mockDB)
+	ctx := context.Background()
+
+	// Create valid UUIDs for testing
+	todoID := uuid.New().String()
+	userID := uuid.New().String()
+
+	// Create a todo without timestamps
+	todo := &models.Todo{
+		ID:          todoID,
+		UserID:      userID,
+		Title:       "Test Todo",
+		Description: "This is a test todo",
+		Completed:   false,
+		// CreatedAt and UpdatedAt are zero values
+	}
+
+	// Set expected query without checking arguments in detail
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO todos (id, title, description, user_id, completed, created_at, updated_at) VALUES`)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Execute the function being tested
+	err := repo.CreateTodo(ctx, todo)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+	assert.False(t, todo.CreatedAt.IsZero(), "CreatedAt should be automatically set")
+	assert.False(t, todo.UpdatedAt.IsZero(), "UpdatedAt should be automatically set")
 }

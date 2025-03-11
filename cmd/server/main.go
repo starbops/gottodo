@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/starbops/gottodo/internal/handlers"
@@ -16,14 +16,18 @@ import (
 )
 
 func main() {
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: No .env file found")
+	// Define command-line flags
+	configPath := flag.String("config", "", "Path to configuration file (default: config.json in executable directory)")
+	flag.Parse()
+
+	// If config path is not specified via flag, use the default
+	if *configPath == "" {
+		*configPath = getDefaultConfigPath()
 	}
 
 	// Load configuration
-	configPath := getConfigPath()
-	cfg, err := config.LoadConfig(configPath)
+	log.Printf("Loading configuration from %s", *configPath)
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -48,7 +52,7 @@ func main() {
 	todoService := services.NewTodoService(todoRepo)
 
 	// Initialize auth service
-	authService := auth.NewAuthService()
+	authService := auth.NewAuthService(cfg)
 
 	// Initialize handlers
 	todoHandler := handlers.NewTodoHandler(todoService)
@@ -86,23 +90,13 @@ func main() {
 
 	// Start the server
 	port := cfg.Server.Port
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		// Environment variable overrides config file
-		port = envPort
-	}
-
 	log.Printf("Server starting on http://localhost:%s", port)
 	log.Fatal(e.Start(":" + port))
 }
 
-// getConfigPath returns the path to the configuration file
-func getConfigPath() string {
-	// Check if CONFIG_PATH environment variable is set
-	if path := os.Getenv("CONFIG_PATH"); path != "" {
-		return path
-	}
-
-	// Default to config.json in the current directory
+// getDefaultConfigPath returns the path to the default configuration file
+func getDefaultConfigPath() string {
+	// Try to determine the executable path
 	exePath, err := os.Executable()
 	if err != nil {
 		log.Println("Warning: Could not determine executable path, using current directory")

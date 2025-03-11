@@ -76,11 +76,21 @@ func (r *SupabaseTodoRepository) GetTodo(ctx context.Context, todoID string) (*m
 
 // CreateTodo creates a new todo
 func (r *SupabaseTodoRepository) CreateTodo(ctx context.Context, todo *models.Todo) error {
-	query := `INSERT INTO todos (id, title, description, user_id, completed) VALUES ($1, $2, $3, $4, $5)`
+	query := `INSERT INTO todos (id, title, description, user_id, completed, created_at, updated_at) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	// Generate UUID if not provided
 	if todo.ID == "" {
 		todo.ID = uuid.New().String()
+	}
+
+	// Ensure timestamps are set
+	now := time.Now()
+	if todo.CreatedAt.IsZero() {
+		todo.CreatedAt = now
+	}
+	if todo.UpdatedAt.IsZero() {
+		todo.UpdatedAt = now
 	}
 
 	// Parse userID into UUID
@@ -89,7 +99,9 @@ func (r *SupabaseTodoRepository) CreateTodo(ctx context.Context, todo *models.To
 		return fmt.Errorf("invalid user ID format: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, query, todo.ID, todo.Title, todo.Description, uid, todo.Completed)
+	_, err = r.db.ExecContext(ctx, query,
+		todo.ID, todo.Title, todo.Description, uid, todo.Completed,
+		todo.CreatedAt, todo.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert todo: %w", err)
 	}
@@ -99,9 +111,15 @@ func (r *SupabaseTodoRepository) CreateTodo(ctx context.Context, todo *models.To
 
 // UpdateTodo updates an existing todo
 func (r *SupabaseTodoRepository) UpdateTodo(ctx context.Context, todo *models.Todo) error {
-	query := `UPDATE todos SET title = $1, description = $2, completed = $3 WHERE id = $4`
+	query := `UPDATE todos SET title = $1, description = $2, completed = $3, updated_at = $4 WHERE id = $5`
 
-	result, err := r.db.ExecContext(ctx, query, todo.Title, todo.Description, todo.Completed, todo.ID)
+	// Ensure updated_at is set
+	if todo.UpdatedAt.IsZero() {
+		todo.UpdatedAt = time.Now()
+	}
+
+	result, err := r.db.ExecContext(ctx, query,
+		todo.Title, todo.Description, todo.Completed, todo.UpdatedAt, todo.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update todo: %w", err)
 	}

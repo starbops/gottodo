@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/starbops/gottodo/pkg/config"
 )
 
 // SupabaseClient represents a client connection to the Supabase database
@@ -16,10 +16,10 @@ type SupabaseClient struct {
 }
 
 // NewSupabaseClient creates a new client connection to the Supabase database
-func NewSupabaseClient() (*SupabaseClient, error) {
-	dbURL := os.Getenv("SUPABASE_DB_URL")
+func NewSupabaseClient(cfg *config.Config) (*SupabaseClient, error) {
+	dbURL := cfg.GetSupabaseDBURL()
 	if dbURL == "" {
-		return nil, fmt.Errorf("SUPABASE_DB_URL environment variable is not set")
+		return nil, fmt.Errorf("Supabase database URL is not configured")
 	}
 
 	// Open a connection to the database
@@ -61,8 +61,8 @@ func (c *SupabaseClient) Close() error {
 
 // ConnectToSupabase establishes a connection to the Supabase PostgreSQL database
 // This is maintained for backward compatibility
-func ConnectToSupabase() (*sql.DB, error) {
-	client, err := NewSupabaseClient()
+func ConnectToSupabase(cfg *config.Config) (*sql.DB, error) {
+	client, err := NewSupabaseClient(cfg)
 	if err != nil {
 		return nil, err
 	}

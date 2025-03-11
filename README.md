@@ -48,28 +48,13 @@ GotToDo is a simple Todo application built with modern web technologies:
 ### Prerequisites
 
 - Go 1.21+
-- Supabase account (or use the in-memory repository for development)
-- GitHub OAuth application (for GitHub authentication)
-
-### Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```
-PORT=8080
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_DB_URL=your_supabase_db_url
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URL=http://localhost:8080/auth/github/callback
-```
+- Supabase account (for production use)
 
 ### Configuration
 
-The application uses a JSON configuration file to control various behaviors. By default, it will look for `config.json` in the same directory as the executable. You can specify a different location by setting the `CONFIG_PATH` environment variable.
+GotToDo uses a single JSON configuration file for all application settings. You can specify the configuration file path using the `-config` command-line flag when starting the application.
 
-If no configuration file exists, a default one will be created when the application starts.
+If no configuration file exists at the specified location (or the default location if no path is specified), a default configuration file will be created automatically.
 
 Example configuration file:
 
@@ -80,13 +65,23 @@ Example configuration file:
   },
   "server": {
     "port": "8080"
+  },
+  "database": {
+    "supabase_url": "your_supabase_url",
+    "supabase_anon_key": "your_supabase_anon_key",
+    "supabase_db_url": "your_supabase_db_url"
+  },
+  "auth": {
+    "github_client_id": "your_github_client_id",
+    "github_client_secret": "your_github_client_secret",
+    "github_redirect_url": "http://localhost:8080/auth/github/callback"
   }
 }
 ```
 
 Available repository types:
 - `memory`: Stores todos in memory (data will be lost when the application restarts)
-- `supabase`: Stores todos in a Supabase PostgreSQL database (requires proper environment variables)
+- `supabase`: Stores todos in a Supabase PostgreSQL database
 
 ### Running the Application
 
@@ -100,12 +95,17 @@ Available repository types:
    cd ui && go install github.com/a-h/templ/cmd/templ@latest && templ generate
    ```
 
-3. Run the application:
+3. Run the application with the default configuration:
    ```
    go run cmd/server/main.go
    ```
 
-4. Access the application at `http://localhost:8080`
+   Or specify a custom configuration file path:
+   ```
+   go run cmd/server/main.go -config /path/to/config.json
+   ```
+
+4. Access the application at `http://localhost:8080` (or the port specified in your configuration)
 
 ## Why Templ?
 
