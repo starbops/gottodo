@@ -181,6 +181,12 @@ func (h *TodoHandler) DeleteTodo(c echo.Context) error {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("Failed to delete todo: %v", err))
 	}
 
-	// Return empty string to remove the todo from the UI
-	return c.NoContent(http.StatusOK)
+	// Get all todos for the user to refresh the list
+	todos, err := h.todoService.GetUserTodos(c.Request().Context(), userID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to get todos: %v", err))
+	}
+
+	// Return the updated todo list
+	return templates.TodoListComponent(todos).Render(c.Request().Context(), c.Response().Writer)
 }

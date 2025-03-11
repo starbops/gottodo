@@ -12,10 +12,16 @@ templ Dashboard(todos []*models.Todo, userEmail string) {
 			// Listen for successful form submission
 			document.addEventListener('DOMContentLoaded', function() {
 				// Add HTMX event listener for after the swap completes
+				document.body.addEventListener('htmx:beforeSend', function(event) {
+					// Store the operation type in a global variable
+					window.lastHtmxOperation = event.detail.elt.getAttribute('data-operation') || 
+					                          (event.detail.elt.id === 'todo-form' ? 'add' : 'unknown');
+				});
+				
 				document.body.addEventListener('htmx:afterSwap', function(event) {
-					// Check if the swap target was the todo list
-					if (event.detail.target.id === 'todo-list') {
-						// Clear the form AFTER data has been sent successfully
+					// Check if the swap target was the todo list and it was an add operation
+					if (event.detail.target.id === 'todo-list' && window.lastHtmxOperation === 'add') {
+						// Clear the form
 						const form = document.getElementById('todo-form');
 						if (form) {
 							// Reset form
@@ -33,6 +39,9 @@ templ Dashboard(todos []*models.Todo, userEmail string) {
 								}, 2000);
 							}
 						}
+						
+						// Reset the operation
+						window.lastHtmxOperation = 'unknown';
 					}
 				});
 			});
