@@ -2,36 +2,48 @@ package templates
 
 import "github.com/starbops/gottodo/internal/models"
 
-// TodoListComponent renders the todo list for AJAX responses
+// TodoListComponent renders only the todo list for AJAX responses
 templ TodoListComponent(todos []*models.Todo) {
-	<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
-		<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
-		<div class="space-y-4">
-			if len(todos) == 0 {
-				<p class="text-gray-500 text-center">No todos yet. Add one above!</p>
-			} else {
-				for _, todo := range todos {
-					@TodoItem(todo)
-				}
+	<div id="todo-list">
+		if len(todos) == 0 {
+			<div class="text-center py-4">
+				<p class="text-gray-500">No todos yet. Add one above!</p>
+			</div>
+		} else {
+			for _, todo := range todos {
+				@TodoItem(todo)
 			}
-		</div>
+		}
 	</div>
 }
 
 // TodoListWithError renders the todo list with an error message
-templ TodoListWithError(message string, todos []*models.Todo) {
-	<div id="todo-list" class="bg-white rounded-lg shadow-md p-6">
-		<h2 class="text-xl font-semibold mb-4">Your Todos</h2>
-		<div class="space-y-4">
-			@ErrorMessage(message)
-			
-			if len(todos) == 0 {
-				<p class="text-gray-500 text-center">No todos yet. Add one above!</p>
-			} else {
-				for _, todo := range todos {
-					@TodoItem(todo)
-				}
-			}
-		</div>
+templ TodoListWithError(errorMessage string, todos []*models.Todo) {
+	<div>
+		@ErrorMessage(errorMessage)
+		@TodoListComponent(todos)
 	</div>
+}
+
+// LoginErrorForm renders a login form with an error message but keeps the email and clears the password
+templ LoginErrorForm(email string) {
+	<form id="login-form" hx-post="/auth/login" hx-target="#login-form-container" hx-swap="innerHTML">
+		<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
+			<p>Invalid credentials. Please try again.</p>
+		</div>
+		<div class="mb-4">
+			<label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
+			<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+				id="email" name="email" type="email" placeholder="Email" value={email} />
+		</div>
+		<div class="mb-6">
+			<label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
+			<input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+				id="password" name="password" type="password" placeholder="Password" />
+		</div>
+		<div class="flex items-center justify-between">
+			<button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">Sign In</button>
+			<a class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="/register">Don't have an account?</a>
+		</div>
+	</form>
 } 

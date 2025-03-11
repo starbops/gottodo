@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/starbops/gottodo/internal/models"
 	"github.com/starbops/gottodo/pkg/auth"
+	"github.com/starbops/gottodo/ui/templates"
 )
 
 // AuthHandler handles HTTP requests for authentication
@@ -62,29 +64,22 @@ func (h *AuthHandler) Register(c echo.Context) error {
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req LoginRequest
 	if err := c.Bind(&req); err != nil {
-		return c.HTML(http.StatusBadRequest, `
-			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-				<p>Error: Invalid login credentials. Please try again.</p>
-			</div>
-		`)
+		// Return generic error without revealing details - invalid form data
+		return renderLoginError(c, req.Email)
 	}
 
 	session, err := h.service.Login(c.Request().Context(), req.Email, req.Password)
 	if err != nil {
-		return c.HTML(http.StatusUnauthorized, `
-			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-				<p>Error: `+err.Error()+`</p>
-			</div>
-		`)
+		// Return generic error without revealing whether the account exists or password is incorrect
+		log.Printf("Login failed for email %s: %v", req.Email, err)
+		return renderLoginError(c, req.Email)
 	}
 
 	// Validate that the user ID is a valid UUID
 	if !models.IsValidUUID(session.UserID) {
-		return c.HTML(http.StatusInternalServerError, `
-			<div class="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-				<p>Error: User ID is not valid</p>
-			</div>
-		`)
+		// Internal error, but still show generic error to the user
+		log.Printf("Invalid UUID for user: %s", session.UserID)
+		return renderLoginError(c, req.Email)
 	}
 
 	// Set cookie
@@ -100,6 +95,11 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	// Redirect to dashboard after successful login
 	c.Response().Header().Set("HX-Redirect", "/dashboard")
 	return c.NoContent(http.StatusOK)
+}
+
+// renderLoginError renders a login error form
+func renderLoginError(c echo.Context, email string) error {
+	return templates.LoginErrorForm(email).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // Logout handles POST /auth/logout
